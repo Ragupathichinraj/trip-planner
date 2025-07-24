@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Travel Planner and Weather Forecast</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f8ff;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 700px;
+      margin: auto;
+      padding: 20px;
+      background: #ffffff;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      border-radius: 12px;
+    }
+    h1, h2 {
+      text-align: center;
+      color: #0077b6;
+    }
+    input, button {
+      padding: 10px;
+      margin: 10px 0;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      background-color: #0077b6;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #023e8a;
+    }
+    .result {
+      margin-top: 20px;
+    }
+    .forecast {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .forecast-day {
+      background: #caf0f8;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      flex: 1;
+    }
+    iframe {
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Travel Planner</h1>
+
+    <label for="destination">Destination (City or Country):</label>
+    <input type="text" id="destination" placeholder="Enter city or country name">
+
+    <label for="startDate">Start Date:</label>
+    <input type="date" id="startDate">
+
+    <label for="endDate">End Date:</label>
+    <input type="date" id="endDate">
+
+    <button onclick="planTrip()">Plan Trip & Get Weather</button>
+
+    <div class="result" id="tripDetails"></div>
+    <div class="result" id="weatherResult"></div>
+    <div class="forecast" id="forecastResult"></div>
+    <div class="result" id="mapSection"></div>
+  </div>
+
+  <script>
+    const apiKey = "94a151014127737ba87d5744076ae4b1"; // Your OpenWeatherMap API Key
+
+    // Country to capital city mapping
+    const countryToCapital = {
+      India: "New Delhi",
+      France: "Paris",
+      Germany: "Berlin",
+      Japan: "Tokyo",
+      China: "Beijing",
+      Australia: "Canberra",
+      USA: "Washington",
+      Canada: "Ottawa",
+      Brazil: "Brasilia",
+      Russia: "Moscow",
+      UK: "London",
+      Italy: "Rome",
+      Spain: "Madrid",
+      Mexico: "Mexico City",
+      Indonesia: "Jakarta"
+    };
+
+    function planTrip() {
+      let destination = document.getElementById('destination').value.trim();
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const tripDetails = document.getElementById('tripDetails');
+      const weatherResult = document.getElementById('weatherResult');
+      const forecastResult = document.getElementById('forecastResult');
+      const mapSection = document.getElementById('mapSection');
+
+      // Convert country name to capital if applicable
+      if (countryToCapital[destination]) {
+        destination = countryToCapital[destination];
+      }
+
+      if (!destination || !startDate || !endDate) {
+        alert('Please enter all details.');
+        return;
+      }
+
+      tripDetails.innerHTML = `
+        <h2>Trip to ${destination}</h2>
+        <p>From: ${startDate}</p>
+        <p>To: ${endDate}</p>
+      `;
+
+      // Map
+      const mapURL = `https://www.google.com/maps?q=${encodeURIComponent(destination)}&output=embed`;
+      mapSection.innerHTML = `
+        <h2>Map of ${destination}</h2>
+        <iframe width="100%" height="300" loading="lazy" allowfullscreen src="${mapURL}"></iframe>
+      `;
+
+      // Current Weather
+      fetch(`https://api.openweathermap.org/data/2.5/weather?q=${destination}&appid=${apiKey}&units=metric`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.cod !== 200) {
+            weatherResult.innerHTML = `<p>Error: ${data.message}</p>`;
+            forecastResult.innerHTML = '';
+            mapSection.innerHTML = '';
+            return;
+          }
+          weatherResult.innerHTML = `
+            <h2>Current Weather in ${destination}</h2>
+            <p>Temperature: ${data.main.temp} °C</p>
+            <p>Weather: ${data.weather[0].description}</p>
+          `;
+        });
+
+      // 5-Day Forecast
+      fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${destination}&appid=${apiKey}&units=metric`)
+        .then(res => res.json())
+        .then(data => {
+          forecastResult.innerHTML = "<h2>5-Day Forecast:</h2>";
+          let forecastHTML = '';
+          const filtered = data.list.filter(item => item.dt_txt.includes("12:00:00"));
+          filtered.slice(0, 5).forEach(day => {
+            forecastHTML += `
+              <div class="forecast-day">
+                <strong>${day.dt_txt.split(" ")[0]}</strong>
+                <p>${day.weather[0].description}</p>
+                <p>Temp: ${day.main.temp} °C</p>
+              </div>
+            `;
+          });
+          forecastResult.innerHTML += forecastHTML;
+        });
+    }
+  </script>
+</body>
+</html>
