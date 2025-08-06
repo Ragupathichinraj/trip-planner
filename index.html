@@ -53,9 +53,24 @@
       border-radius: 8px;
       text-align: center;
       flex: 1;
+      min-width: 120px;
     }
     iframe {
       border-radius: 10px;
+      width: 100%;
+      height: 300px;
+      max-width: 100%;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li a {
+      color: #023e8a;
+      text-decoration: none;
+    }
+    li a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
@@ -72,18 +87,19 @@
     <label for="endDate">End Date:</label>
     <input type="date" id="endDate">
 
-    <button onclick="planTrip()">Plan Trip & Get Weather</button>
+    <button onclick="planTrip()">Plan Trip & Get Info</button>
 
     <div class="result" id="tripDetails"></div>
     <div class="result" id="weatherResult"></div>
     <div class="forecast" id="forecastResult"></div>
     <div class="result" id="mapSection"></div>
+    <div class="result" id="touristPlaces"></div>
   </div>
 
   <script>
-    const apiKey = "94a151014127737ba87d5744076ae4b1"; // Your OpenWeatherMap API Key
+    const apiKey = "94a151014127737ba87d5744076ae4b1"; // Replace with your own OpenWeatherMap API key
 
-    // Country to capital city mapping
+    // Country to capital mapping
     const countryToCapital = {
       India: "New Delhi",
       France: "Paris",
@@ -106,19 +122,26 @@
       let destination = document.getElementById('destination').value.trim();
       const startDate = document.getElementById('startDate').value;
       const endDate = document.getElementById('endDate').value;
+
       const tripDetails = document.getElementById('tripDetails');
       const weatherResult = document.getElementById('weatherResult');
       const forecastResult = document.getElementById('forecastResult');
       const mapSection = document.getElementById('mapSection');
-
-      // Convert country name to capital if applicable
-      if (countryToCapital[destination]) {
-        destination = countryToCapital[destination];
-      }
+      const touristPlaces = document.getElementById('touristPlaces');
 
       if (!destination || !startDate || !endDate) {
         alert('Please enter all details.');
         return;
+      }
+
+      if (new Date(startDate) > new Date(endDate)) {
+        alert('End date must be after start date.');
+        return;
+      }
+
+      // Convert country to capital if applicable
+      if (countryToCapital[destination]) {
+        destination = countryToCapital[destination];
       }
 
       tripDetails.innerHTML = `
@@ -127,34 +150,40 @@
         <p>To: ${endDate}</p>
       `;
 
-      // Map
+      // Load map
       const mapURL = `https://www.google.com/maps?q=${encodeURIComponent(destination)}&output=embed`;
       mapSection.innerHTML = `
         <h2>Map of ${destination}</h2>
-        <iframe width="100%" height="300" loading="lazy" allowfullscreen src="${mapURL}"></iframe>
+        <iframe loading="lazy" allowfullscreen src="${mapURL}"></iframe>
       `;
 
-      // Current Weather
+      // Load current weather
+      weatherResult.innerHTML = `<p>Loading weather...</p>`;
       fetch(`https://api.openweathermap.org/data/2.5/weather?q=${destination}&appid=${apiKey}&units=metric`)
         .then(res => res.json())
         .then(data => {
           if (data.cod !== 200) {
             weatherResult.innerHTML = `<p>Error: ${data.message}</p>`;
             forecastResult.innerHTML = '';
-            mapSection.innerHTML = '';
             return;
           }
           weatherResult.innerHTML = `
             <h2>Current Weather in ${destination}</h2>
             <p>Temperature: ${data.main.temp} °C</p>
             <p>Weather: ${data.weather[0].description}</p>
+            <img src="http://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png" alt="Weather Icon">
           `;
         });
 
-      // 5-Day Forecast
+      // Load 5-day forecast
+      forecastResult.innerHTML = `<p>Loading forecast...</p>`;
       fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${destination}&appid=${apiKey}&units=metric`)
         .then(res => res.json())
         .then(data => {
+          if (!data.list || data.cod !== "200") {
+            forecastResult.innerHTML = `<p>Forecast not available.</p>`;
+            return;
+          }
           forecastResult.innerHTML = "<h2>5-Day Forecast:</h2>";
           let forecastHTML = '';
           const filtered = data.list.filter(item => item.dt_txt.includes("12:00:00"));
@@ -164,10 +193,39 @@
                 <strong>${day.dt_txt.split(" ")[0]}</strong>
                 <p>${day.weather[0].description}</p>
                 <p>Temp: ${day.main.temp} °C</p>
+                <img src="http://openweathermap.org/img/wn/${day.weather[0].icon}.png" alt="icon">
               </div>
             `;
           });
           forecastResult.innerHTML += forecastHTML;
+        });
+
+      // Load tourist places using Wikipedia API
+      fetchTouristPlaces(destination);
+    }
+
+    function fetchTouristPlaces(destination) {
+      const touristPlaces = document.getElementById("touristPlaces");
+      touristPlaces.innerHTML = "<h2>Top Tourist Places</h2><p>Loading...</p>";
+
+      fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=Tourist attractions in ${encodeURIComponent(destination)}&utf8=&format=json&origin=*`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.query.search.length === 0) {
+            touristPlaces.innerHTML = `<h2>Top Tourist Places</h2><p>No tourist places found.</p>`;
+            return;
+          }
+
+          let output = "<h2>Top Tourist Places</h2><ul>";
+          data.query.search.slice(0, 5).forEach(item => {
+            const pageUrl = `https://en.wikipedia.org/?curid=${item.pageid}`;
+            output += `<li><a href="${pageUrl}" target="_blank">${item.title}</a></li>`;
+          });
+          output += "</ul>";
+          touristPlaces.innerHTML = output;
+        })
+        .catch(() => {
+          touristPlaces.innerHTML = `<h2>Top Tourist Places</h2><p>Error loading tourist attractions.</p>`;
         });
     }
   </script>
